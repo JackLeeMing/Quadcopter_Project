@@ -28,18 +28,18 @@ class DDPG():
 
         # Noise process
         self.exploration_mu = 0
-        self.exploration_theta = 0.5
-        self.exploration_sigma = 0.1
+        self.exploration_theta = 0.15
+        self.exploration_sigma = 0.02
         self.noise = OUNoise(self.action_size, self.exploration_mu, self.exploration_theta, self.exploration_sigma)
 
         # Replay memory
         self.buffer_size = 100000
-        self.batch_size = 64
+        self.batch_size = 128
         self.memory = ReplayBuffer(self.buffer_size, self.batch_size)
 
         # Algorithm parameters
         self.gamma = 0.99  # discount factor
-        self.tau = 0.01  # for soft update of target parameters
+        self.tau = 0.001  # for soft update of target parameters
 
         self.total_reward = 0
         self.count = 0
@@ -146,10 +146,13 @@ class Actor(object):
         # Add hidden layers
         net = layers.Dense(units=32, activation='relu')(states)
         net = layers.BatchNormalization()(net)
+        net = layers.Dropout(0.5)(net)
         net = layers.Dense(units=64, activation='relu')(net)
         net = layers.BatchNormalization()(net)
-        net = layers.Dense(units=128, activation='relu')(net)
+        net = layers.Dropout(0.5)(net)
+        net = layers.Dense(units=32, activation='relu')(net)
         net = layers.BatchNormalization()(net)
+        net = layers.Dropout(0.5)(net)
 
         # Try different layer sizes, activations, add batch normalization, regularizers, etc.
 
@@ -169,7 +172,7 @@ class Actor(object):
         # Incorporate any additional losses here (e.g. from regularizers)
 
         # Define optimizer and training function
-        optimizer = optimizers.Adam()
+        optimizer = optimizers.Adam(lr=0.001)
         updates_op = optimizer.get_updates(params=self.model.trainable_weights, loss=loss)
         self.train_fn = K.function(
             inputs=[self.model.input, action_gradients, K.learning_phase()],
@@ -204,14 +207,29 @@ class Critic(object):
         # Add hidden layer(s) for state pathway
         net_states = layers.Dense(units=32, activation='relu')(states)
         net_states = layers.BatchNormalization()(net_states)
+        net_states = layers.Dropout(0.5)(net_states)
+        
         net_states = layers.Dense(units=64, activation='relu')(net_states)
         net_states = layers.BatchNormalization()(net_states)
+        net_states = layers.Dropout(0.5)(net_states)
+        
+        net_states = layers.Dense(units=32, activation='relu')(net_states)
+        net_states = layers.BatchNormalization()(net_states)
+        net_states = layers.Dropout(0.5)(net_states)
 
         # Add hidden layer(s) for action pathway
         net_actions = layers.Dense(units=32, activation='relu')(actions)
         net_actions = layers.BatchNormalization()(net_actions)
+        net_states = layers.Dropout(0.5)(net_states)
+        
         net_actions = layers.Dense(units=64, activation='relu')(net_actions)
         net_actions = layers.BatchNormalization()(net_actions)
+        net_states = layers.Dropout(0.5)(net_states)
+        
+        
+        net_actions = layers.Dense(units=32, activation='relu')(actions)
+        net_actions = layers.BatchNormalization()(net_actions)
+        net_states = layers.Dropout(0.5)(net_states)
 
         # Try different layer sizes, activations, add batch normalization, regularizers, etc.
 
@@ -228,7 +246,7 @@ class Critic(object):
         self.model = models.Model(inputs=[states, actions], outputs=Q_values)
 
         # Define optimizer and compile model for training with built-in loss function
-        optimizer = optimizers.Adam()
+        optimizer = optimizers.Adam(lr=0.001)
         self.model.compile(optimizer=optimizer, loss='mse')
 
         # Compute action gradients (derivative of Q values w.r.t. to actions)
